@@ -59,7 +59,7 @@ function showVipSection(show) {
 
 function ensureConnected() {
   if (!provider || !signer || !contract || !currentAddress) {
-    setAlert("請先點選 Connect Wallet 連接錢包後再操作。");
+    setAlert("請先點選「連接錢包」連接 MetaMask 後再操作。");
     return false;
   }
   return true;
@@ -102,7 +102,7 @@ function toUserMessage(context, err) {
 
   // 餘額不足
   if (lower.includes("insufficient funds")) {
-    return "錢包測試幣不足（SepoliaETH 不夠支付 gas）。請先補充測試幣後再試。";
+    return "錢包測試幣不足（Sepolia ETH 不夠支付 gas）。請先補充測試幣後再試。";
   }
 
   // 地址格式錯誤
@@ -110,7 +110,7 @@ function toUserMessage(context, err) {
     lower.includes("invalid address") ||
     (err && err.code === "INVALID_ARGUMENT" && lower.includes("address"))
   ) {
-    return "地址格式不正確，請輸入正確的 0x 開頭地址。";
+    return "錢包地址格式不正確，請輸入正確的 0x 開頭地址。";
   }
 
   // 常見：交易可能會失敗（估 gas 失敗 / 權限不足 / 參數不合法）
@@ -120,10 +120,10 @@ function toUserMessage(context, err) {
     (err && err.code === "UNPREDICTABLE_GAS_LIMIT")
   ) {
     if (context === "registerProduct") {
-      return "無法送出新增商品交易。請確認你是 Admin/VIP，且輸入內容完整，且該 Product ID 尚未登記。";
+      return "無法送出「新增商品」交易。請確認你是管理者或 VIP，且輸入資料完整，且該商品編號尚未登記。";
     }
     if (context === "addVIP" || context === "removeVIP") {
-      return "無法送出 VIP 管理交易。請確認你是 Admin，且輸入的地址正確。";
+      return "無法送出「VIP 管理」交易。請確認你是管理者，且輸入的錢包地址正確。";
     }
     return "交易可能會失敗（權限不足或資料不合法）。請確認角色與輸入資料後再試。";
   }
@@ -131,7 +131,7 @@ function toUserMessage(context, err) {
   // 合約呼叫失敗（常見於查不到商品或合約/ABI 不匹配）
   if (err && err.code === "CALL_EXCEPTION") {
     if (context === "getProduct") {
-      return "查無此商品資料。請先用 exists() 確認該 Product ID 是否已登記。";
+      return "查無此商品資料。請先用「檢查是否已登記」確認該商品編號是否已登記。";
     }
     return "讀取合約資料失敗。請確認網路在 Sepolia，且合約地址/ABI 設定正確。";
   }
@@ -142,7 +142,7 @@ function toUserMessage(context, err) {
     lower.includes("call_exception")
   ) {
     if (context === "getProduct") {
-      return "查無此商品資料。請先用 exists() 確認該 Product ID 是否已登記。";
+      return "查無此商品資料。請先用「檢查是否已登記」確認該商品編號是否已登記。";
     }
     return "操作失敗（合約未回傳詳細原因）。請確認網路、合約地址與輸入資料後再試。";
   }
@@ -186,9 +186,9 @@ async function refreshRole() {
   const isAdminValue = await contract.isAdmin(currentAddress);
   const isVipValue = await contract.isVIP(currentAddress);
 
-  let roleText = "User";
+  let roleText = "一般使用者";
   if (isAdminValue) {
-    roleText = "Admin";
+    roleText = "管理者";
   } else if (isVipValue) {
     roleText = "VIP";
   }
@@ -250,7 +250,7 @@ async function onExists() {
   const id = Number(raw);
 
   if (!Number.isFinite(id) || id < 0) {
-    setAlert("請輸入正確的 Product ID（非負整數）。");
+    setAlert("請輸入正確的商品編號（非負整數）。");
     return;
   }
 
@@ -268,7 +268,7 @@ async function onGetProduct() {
   const id = Number(raw);
 
   if (!Number.isFinite(id) || id < 0) {
-    setAlert("請輸入正確的 Product ID（非負整數）。");
+    setAlert("請輸入正確的商品編號（非負整數）。");
     return;
   }
 
@@ -276,7 +276,7 @@ async function onGetProduct() {
   const ok = await contract.exists(id);
   if (!ok) {
     setAlert("");
-    setPre("outQuery", "查無此商品。請確認 Product ID 是否已登記。");
+    setPre("outQuery", "查無此商品。請確認商品編號是否已登記。");
     return;
   }
 
@@ -306,11 +306,11 @@ async function onRegister() {
   const origin = document.getElementById("rOrigin").value.trim();
 
   if (!Number.isFinite(id) || id < 0) {
-    setAlert("請輸入正確的 Product ID（非負整數）。");
+    setAlert("請輸入正確的商品編號（非負整數）。");
     return;
   }
   if (!name || !origin) {
-    setAlert("請輸入完整資料（Name 與 Origin 皆不可空白）。");
+    setAlert("請輸入完整資料（商品名稱與產地皆不可空白）。");
     return;
   }
 
@@ -331,7 +331,7 @@ async function onAddVip() {
 
   const addr = document.getElementById("vipAddress").value.trim();
   if (!ethers.isAddress(addr)) {
-    setAlert("VIP Address 格式不正確，請輸入正確的 0x 開頭地址。");
+    setAlert("VIP 錢包地址格式不正確，請輸入正確的 0x 開頭地址。");
     return;
   }
 
@@ -352,7 +352,7 @@ async function onRemoveVip() {
 
   const addr = document.getElementById("vipAddress").value.trim();
   if (!ethers.isAddress(addr)) {
-    setAlert("VIP Address 格式不正確，請輸入正確的 0x 開頭地址。");
+    setAlert("VIP 錢包地址格式不正確，請輸入正確的 0x 開頭地址。");
     return;
   }
 
@@ -373,7 +373,7 @@ async function onCheckVip() {
 
   const addr = document.getElementById("vipAddress").value.trim();
   if (!ethers.isAddress(addr)) {
-    setAlert("VIP Address 格式不正確，請輸入正確的 0x 開頭地址。");
+    setAlert("VIP 錢包地址格式不正確，請輸入正確的 0x 開頭地址。");
     return;
   }
 

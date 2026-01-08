@@ -57,6 +57,64 @@
 
 ---
 
-## 系統架構
+## 技術使用
+
+### 智能合約
+
+- Solidity ^0.8.x
+- OpenZeppelin（AccessControl）
+- 部署網路：Ethereum Sepolia Testnet
+
+### 前端
+
+- HTML5 / CSS3
+- Bootstrap 5
+- ethers.js v6（BrowserProvider）
+- MetaMask 整合
+
+---
+
+## 使用方式
+
+### 1. 環境需求
+
+- 安裝 MetaMask 瀏覽器錢包
+- MetaMask 切換至 **Sepolia 測試網**
+- 錢包內需有少量 **SepoliaETH**（支付交易 gas）
+
+### 2. 開啟應用程式
+
+- 使用 GitHub Pages 開啟本專案 `docs/` 所部署的網頁
+- 點擊「連接錢包」
+- 連接成功後，畫面將顯示 Address / Network / Role
+
+### 3. 操作流程（建議順序）
+
+1. **連接錢包**
+2. **商品查詢**：輸入 Product ID → 可先檢查是否已登記 → 再查詢詳細資料
+3. **商品登記（VIP / Admin）**：輸入 Product ID、名稱、產地 → 送出交易 → 等待確認
+4. **VIP 管理（Admin）**：輸入地址 → 新增/移除 VIP 或查詢 VIP 狀態
+
+---
+
+## 錯誤處理
+
+- 前端會將區塊鏈錯誤轉換為使用者可理解的提示文字
+- 避免直接顯示底層錯誤碼或大量「程式型訊息」
+- 詳細錯誤仍會保留在瀏覽器 Console 方便除錯
+
+---
+
+## 注意事項
+
+- 本專案部署於 **Sepolia 測試網**，不屬於主網正式環境
+- 本專案以示範「合約 + 前端整合」為目的，未包含完整生產環境安全審計與防護
+- 若要展示給他人操作，請確保其 MetaMask 網路與測試幣已準備完成
+
+---
+
+## 授權
+
+MIT License
 
 [測試網址](https://a3668.github.io/dapp-test/)
