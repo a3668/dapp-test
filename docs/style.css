@@ -1,0 +1,112 @@
+:root {
+  --radius: 14px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  --border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Base */
+body {
+  background: #f6f7fb;
+  color: #111827;
+}
+
+/* Container */
+.container {
+  max-width: 980px;
+}
+
+/* Headline */
+h1.h4 {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+/* Cards */
+.card {
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.card-header {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(6px);
+  border-bottom: var(--border);
+}
+
+.card-body {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* Form */
+.form-label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-control {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 10px 12px;
+}
+
+.form-control:focus {
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* Buttons */
+.btn {
+  border-radius: 12px;
+  font-weight: 650;
+  padding: 10px 12px;
+}
+
+.btn-outline-secondary,
+.btn-outline-primary {
+  background: #ffffff;
+}
+
+/* Output blocks */
+pre.output {
+  min-height: 110px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+
+  line-height: 1.45;
+  font-size: 0.92rem;
+  background: #f3f4f6;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Alert */
+#alertBox {
+  border-radius: 12px;
+}
+
+/* Helper */
+.wrap-anywhere {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Mobile */
+@media (max-width: 576px) {
+  .btn {
+    width: 100%;
+  }
+
+  .btn + .btn {
+    margin-top: 10px;
+  }
+
+  .card-body {
+    padding: 12px;
+  }
+}
