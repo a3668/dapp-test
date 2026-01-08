@@ -1,0 +1,6 @@
+.DS_Store
+.deps/
+.states/
+artifacts/
+node_modules/
+*.log
