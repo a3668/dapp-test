@@ -58,6 +58,17 @@
 3. 查看角色（User/VIP/Admin）
 4. 進行商品查詢 / 商品登記 / VIP 管理
 
+---
+
+#### 畫面
+
+- ㄧ般使用者
+  ![用戶畫面](./pic/user.png)
+- 管理者
+  ![管理者畫面](./pic/admin.jpeg)
+- 合約互動成功圖
+  ![合約](./pic/trade.png)
+
 ## 授權
 
 MIT License
