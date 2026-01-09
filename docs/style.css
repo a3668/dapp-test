@@ -69,13 +69,12 @@ h1.h4 {
 }
 
 /* Output blocks */
-pre.output {
+.output {
   min-height: 110px;
   margin: 0;
   padding: 12px 14px;
   border-radius: 12px;
 
-  white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
 
@@ -109,28 +108,4 @@ pre.output {
   .card-body {
     padding: 12px;
   }
-}
-/* Alert semantic tuning */
-#alertBox.alert {
-  border-radius: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-#alertBox.alert-info {
-  background-color: #eff6ff;
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #1e3a8a;
-}
-
-#alertBox.alert-warning {
-  background-color: #fffbeb;
-  border-color: rgba(245, 158, 11, 0.45);
-  color: #92400e;
-}
-
-#alertBox.alert-danger {
-  background-color: #fef2f2;
-  border-color: rgba(239, 68, 68, 0.45);
-  color: #7f1d1d;
 }

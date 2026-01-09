@@ -48,15 +48,16 @@
               <button id="btnGetProduct" class="btn btn-outline-primary">
                 查詢商品資料
               </button>
-              <pre id="outQuery" class="output mt-3 bg-body-tertiary"></pre>
+              <div id="outQuery" class="output mt-3"></div>
             </div>
           </div>
         </div>
 
         <!-- Register -->
         <div class="col-12 col-lg-6">
-          <div class="card" id="vipSection">
-            <div class="card-header">商品登記（VIP／管理者）</div>
+          <!-- ✅ 改動：預設隱藏，避免 JS 沒載入時直接顯示 VIP 功能 -->
+          <div class="card d-none" id="vipSection">
+            <div class="card-header">商品登記（VIP / 管理者）</div>
             <div class="card-body">
               <div class="mb-2">
                 <label class="form-label">商品編號</label>
@@ -86,7 +87,7 @@
                 />
               </div>
               <button id="btnRegister" class="btn btn-success">新增商品</button>
-              <pre id="outRegister" class="output mt-3 bg-body-tertiary"></pre>
+              <div id="outRegister" class="output mt-3"></div>
             </div>
           </div>
         </div>
@@ -118,7 +119,7 @@
                   </button>
                 </div>
               </div>
-              <pre id="outAdmin" class="output mt-3 bg-body-tertiary"></pre>
+              <div id="outAdmin" class="output mt-3"></div>
             </div>
           </div>
         </div>
@@ -129,6 +130,6 @@
       </p>
     </div>
 
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./js/app.js"></script>
   </body>
 </html>
