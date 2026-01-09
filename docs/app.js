@@ -1,237 +1,44 @@
-import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.min.js";
-
-const SEPOLIA_CHAIN_ID_DEC = 11155111;
-const SEPOLIA_CHAIN_ID_HEX = "0xaa36a7";
-
-const CONTRACT_ADDRESS = "0xc5720274645A7E4cB839372bFd753f3922153B54";
-
-const ABI = [
-  "function isAdmin(address account) view returns (bool)",
-  "function isVIP(address account) view returns (bool)",
-  "function addVIP(address account)",
-  "function removeVIP(address account)",
-  "function registerProduct(uint256 productId, string name, string origin)",
-  "function exists(uint256 productId) view returns (bool)",
-  "function getProduct(uint256 productId) view returns (uint256 id, string name, string origin, address producer, uint256 timestamp)",
-];
-
-let provider = null;
-let signer = null;
-let contract = null;
-let currentAddress = null;
-
-function setAlert(message) {
-  const el = document.getElementById("alertBox");
-  if (message) {
-    el.textContent = message;
-    el.classList.remove("d-none");
-  } else {
-    el.textContent = "";
-    el.classList.add("d-none");
-  }
-}
-
-function setText(id, value) {
-  document.getElementById(id).textContent = value;
-}
-
-function setPre(id, value) {
-  document.getElementById(id).textContent = value;
-}
-
-function showAdminSection(show) {
-  const el = document.getElementById("adminSection");
-  if (show) {
-    el.classList.remove("d-none");
-  } else {
-    el.classList.add("d-none");
-  }
-}
-
-function showVipSection(show) {
-  const el = document.getElementById("vipSection");
-  if (show) {
-    el.classList.remove("d-none");
-  } else {
-    el.classList.add("d-none");
-  }
-}
+import * as chain from "./chain.js";
+import * as ui from "./ui.js";
 
 function ensureConnected() {
-  if (!provider || !signer || !contract || !currentAddress) {
-    setAlert("請先點選「連接錢包」連接 MetaMask 後再操作。");
+  if (!chain.isConnected()) {
+    ui.setAlert("請先點選「連接錢包」連接 MetaMask 後再操作。");
     return false;
   }
   return true;
 }
 
-function safeMessageFromError(err) {
-  const msg =
-    (err && err.shortMessage) ||
-    (err && err.reason) ||
-    (err && err.message) ||
-    String(err);
-
-  return String(msg || "");
-}
-
-function toUserMessage(context, err) {
-  const msg = safeMessageFromError(err);
-  const lower = msg.toLowerCase();
-
-  // 使用者取消簽名/交易
-  if (err && (err.code === 4001 || err.code === "ACTION_REJECTED")) {
-    return "你已取消錢包確認，因此沒有送出任何操作。";
-  }
-  if (
-    lower.includes("user rejected") ||
-    lower.includes("rejected") ||
-    lower.includes("denied")
-  ) {
-    return "你已取消錢包確認，因此沒有送出任何操作。";
-  }
-
-  // 網路/節點問題
-  if (
-    lower.includes("network error") ||
-    lower.includes("failed to fetch") ||
-    lower.includes("could not detect network")
-  ) {
-    return "目前無法連線到區塊鏈節點，請檢查網路連線或稍後再試。";
-  }
-
-  // 餘額不足
-  if (lower.includes("insufficient funds")) {
-    return "錢包測試幣不足（Sepolia ETH 不夠支付 gas）。請先補充測試幣後再試。";
-  }
-
-  // 地址格式錯誤
-  if (
-    lower.includes("invalid address") ||
-    (err && err.code === "INVALID_ARGUMENT" && lower.includes("address"))
-  ) {
-    return "錢包地址格式不正確，請輸入正確的 0x 開頭地址。";
-  }
-
-  // 常見：交易可能會失敗（估 gas 失敗 / 權限不足 / 參數不合法）
-  if (
-    lower.includes("cannot estimate gas") ||
-    lower.includes("estimategas") ||
-    (err && err.code === "UNPREDICTABLE_GAS_LIMIT")
-  ) {
-    if (context === "registerProduct") {
-      return "無法送出「新增商品」交易。請確認你是管理者或 VIP，且輸入資料完整，且該商品編號尚未登記。";
-    }
-    if (context === "addVIP" || context === "removeVIP") {
-      return "無法送出「VIP 管理」交易。請確認你是管理者，且輸入的錢包地址正確。";
-    }
-    return "交易可能會失敗（權限不足或資料不合法）。請確認角色與輸入資料後再試。";
-  }
-
-  // 合約呼叫失敗（常見於查不到商品或合約/ABI 不匹配）
-  if (err && err.code === "CALL_EXCEPTION") {
-    if (context === "getProduct") {
-      return "查無此商品資料。請先用「檢查是否已登記」確認該商品編號是否已登記。";
-    }
-    return "讀取合約資料失敗。請確認網路在 Sepolia，且合約地址/ABI 設定正確。";
-  }
-
-  // 特別針對你畫面出現的 missing revert data
-  if (
-    lower.includes("missing revert data") ||
-    lower.includes("call_exception")
-  ) {
-    if (context === "getProduct") {
-      return "查無此商品資料。請先用「檢查是否已登記」確認該商品編號是否已登記。";
-    }
-    return "操作失敗（合約未回傳詳細原因）。請確認網路、合約地址與輸入資料後再試。";
-  }
-
-  // 預設訊息
-  return "操作失敗，請稍後再試。";
-}
-
-function showFriendlyError(context, err) {
-  const userMsg = toUserMessage(context, err);
-  setAlert(userMsg);
-
-  // 技術細節不要丟給一般使用者，但可以留在 console 方便你 debug
-  console.error(`[${context}]`, err);
-}
-
-async function ensureSepolia() {
-  const network = await provider.getNetwork();
-  const networkName = network && network.name ? network.name : "unknown";
-  setText("txtNetwork", `${networkName} (${network.chainId})`);
-
-  if (Number(network.chainId) === SEPOLIA_CHAIN_ID_DEC) {
-    setAlert("");
-    return true;
-  }
-
-  setAlert("請將 MetaMask 網路切換到 Sepolia 測試網後再試一次。");
-
-  try {
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: SEPOLIA_CHAIN_ID_HEX }],
-    });
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-
-async function refreshRole() {
-  const isAdminValue = await contract.isAdmin(currentAddress);
-  const isVipValue = await contract.isVIP(currentAddress);
-
-  let roleText = "一般使用者";
-  if (isAdminValue) {
-    roleText = "管理者";
-  } else if (isVipValue) {
-    roleText = "VIP";
-  }
-
-  setText("txtRole", roleText);
-
-  showAdminSection(Boolean(isAdminValue));
-  showVipSection(Boolean(isAdminValue || isVipValue));
-}
-
-async function connectWallet() {
-  if (!window.ethereum) {
-    setAlert("找不到 MetaMask。請先安裝 MetaMask 後再開啟此頁面。");
+async function connectWalletFlow() {
+  if (!chain.hasMetaMask()) {
+    ui.setAlert("找不到 MetaMask。請先安裝 MetaMask 後再開啟此頁面。");
     return;
   }
 
-  provider = new ethers.BrowserProvider(window.ethereum);
+  const result = await chain.connectWallet();
 
-  const ok = await ensureSepolia();
-  if (!ok) {
+  ui.setText("txtNetwork", `${result.networkName} (${result.chainId})`);
+
+  if (!result.ok) {
+    ui.setAlert("請將 MetaMask 網路切換到 Sepolia 測試網後再試一次。");
     return;
   }
 
-  await provider.send("eth_requestAccounts", []);
-  signer = await provider.getSigner();
-  currentAddress = await signer.getAddress();
-
-  setText("txtAddress", currentAddress);
-
-  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
-  await refreshRole();
-  setAlert("");
+  ui.setText("txtAddress", result.address);
+  ui.updateRoleUI(result.isAdmin, result.isVip);
+  ui.setAlert("");
 
   window.ethereum.on("accountsChanged", async () => {
     try {
-      signer = await provider.getSigner();
-      currentAddress = await signer.getAddress();
-      setText("txtAddress", currentAddress);
-      await refreshRole();
-      setAlert("");
+      const r = await chain.refreshSignerAddress();
+      ui.setText("txtAddress", r.address);
+
+      const role = await chain.getRoleFlags();
+      ui.updateRoleUI(role.isAdmin, role.isVip);
+
+      ui.setAlert("");
     } catch (err) {
-      setAlert("偵測到帳號變更，請重新連接錢包。");
+      ui.setAlert("偵測到帳號變更，請重新連接錢包。");
     }
   });
 
@@ -245,17 +52,18 @@ async function onExists() {
     return;
   }
 
-  setPre("outQuery", "");
+  ui.setPre("outQuery", "");
   const raw = document.getElementById("qProductId").value;
   const id = Number(raw);
 
   if (!Number.isFinite(id) || id < 0) {
-    setAlert("請輸入正確的商品編號（非負整數）。");
+    ui.setAlert("請輸入正確的商品編號（非負整數）。");
     return;
   }
 
-  const ok = await contract.exists(id);
-  setPre("outQuery", `exists(${id}) = ${ok}`);
+  const ok = await chain.existsProduct(id);
+  ui.setAlert("");
+  ui.setPre("outQuery", ui.renderExistsText(id, ok));
 }
 
 async function onGetProduct() {
@@ -263,34 +71,26 @@ async function onGetProduct() {
     return;
   }
 
-  setPre("outQuery", "");
+  ui.setPre("outQuery", "");
   const raw = document.getElementById("qProductId").value;
   const id = Number(raw);
 
   if (!Number.isFinite(id) || id < 0) {
-    setAlert("請輸入正確的商品編號（非負整數）。");
+    ui.setAlert("請輸入正確的商品編號（非負整數）。");
     return;
   }
 
-  // 先 exists()，避免 getProduct() 直接 revert 造成醜的錯誤訊息
-  const ok = await contract.exists(id);
+  const ok = await chain.existsProduct(id);
   if (!ok) {
-    setAlert("");
-    setPre("outQuery", "查無此商品。請確認商品編號是否已登記。");
+    ui.setAlert("");
+    ui.setPre("outQuery", ui.renderProductNotFoundText(id));
     return;
   }
 
-  const p = await contract.getProduct(id);
-  const out = {
-    id: p[0].toString(),
-    name: p[1],
-    origin: p[2],
-    producer: p[3],
-    timestamp: p[4].toString(),
-  };
+  const out = await chain.getProduct(id);
 
-  setAlert("");
-  setPre("outQuery", JSON.stringify(out, null, 2));
+  ui.setAlert("");
+  ui.setPre("outQuery", ui.renderProductText(out));
 }
 
 async function onRegister() {
@@ -298,7 +98,7 @@ async function onRegister() {
     return;
   }
 
-  setPre("outRegister", "");
+  ui.setPre("outRegister", "");
 
   const rawId = document.getElementById("rProductId").value;
   const id = Number(rawId);
@@ -306,20 +106,37 @@ async function onRegister() {
   const origin = document.getElementById("rOrigin").value.trim();
 
   if (!Number.isFinite(id) || id < 0) {
-    setAlert("請輸入正確的商品編號（非負整數）。");
+    ui.setAlert("請輸入正確的商品編號（非負整數）。");
     return;
   }
   if (!name || !origin) {
-    setAlert("請輸入完整資料（商品名稱與產地皆不可空白）。");
+    ui.setAlert("請輸入完整資料（商品名稱與產地皆不可空白）。");
     return;
   }
 
-  setAlert("");
+  ui.setAlert("");
 
-  const tx = await contract.registerProduct(id, name, origin);
-  setPre("outRegister", `已送出交易：\n${tx.hash}\n等待鏈上確認中...`);
+  const tx = await chain.registerProduct(id, name, origin);
+
+  ui.setPre(
+    "outRegister",
+    ui.renderTxPendingText(
+      "新增商品",
+      [`商品編號：${id}`, `商品名稱：${name}`, `產地：${origin}`],
+      tx.hash
+    )
+  );
+
   await tx.wait();
-  setPre("outRegister", `新增成功。\n交易：\n${tx.hash}`);
+
+  ui.setPre(
+    "outRegister",
+    ui.renderTxSuccessText(
+      "新增商品完成",
+      [`商品編號：${id}`, `商品名稱：${name}`, `產地：${origin}`],
+      tx.hash
+    )
+  );
 }
 
 async function onAddVip() {
@@ -327,20 +144,55 @@ async function onAddVip() {
     return;
   }
 
-  setPre("outAdmin", "");
+  ui.setPre("outAdmin", "");
 
   const addr = document.getElementById("vipAddress").value.trim();
-  if (!ethers.isAddress(addr)) {
-    setAlert("VIP 錢包地址格式不正確，請輸入正確的 0x 開頭地址。");
+  if (!chain.isValidAddress(addr)) {
+    ui.setPreError(
+      "outAdmin",
+      "新增 VIP 失敗",
+      "錢包地址格式不正確，請輸入正確的 0x 開頭地址。"
+    );
     return;
   }
 
-  setAlert("");
+  try {
+    const tx = await chain.addVip(addr);
 
-  const tx = await contract.addVIP(addr);
-  setPre("outAdmin", `已送出交易：\n${tx.hash}\n等待鏈上確認中...`);
-  await tx.wait();
-  setPre("outAdmin", `已新增 VIP。\n交易：\n${tx.hash}`);
+    ui.setPre(
+      "outAdmin",
+      ui.renderTxPendingText("新增 VIP", [`VIP 錢包地址：${addr}`], tx.hash)
+    );
+
+    await tx.wait();
+
+    ui.setPre(
+      "outAdmin",
+      ui.renderTxSuccessText(
+        "新增 VIP 完成",
+        [`VIP 錢包地址：${addr}`],
+        tx.hash
+      )
+    );
+  } catch (err) {
+    // 使用者取消 ≠ 錯誤
+    if (err && (err.code === 4001 || err.code === "ACTION_REJECTED")) {
+      ui.setPreNotice(
+        "outAdmin",
+        "新增 VIP 已取消",
+        "你已取消錢包確認，因此沒有送出任何操作。"
+      );
+      return;
+    }
+
+    // 其他錯誤 → 就地顯示
+    ui.setPreError(
+      "outAdmin",
+      "新增 VIP 失敗",
+      ui.showFriendlyError ? "" : "操作失敗，請確認你具有管理者權限。"
+    );
+    console.error("[addVIP]", err);
+  }
 }
 
 async function onRemoveVip() {
@@ -348,20 +200,53 @@ async function onRemoveVip() {
     return;
   }
 
-  setPre("outAdmin", "");
+  ui.setPre("outAdmin", "");
 
   const addr = document.getElementById("vipAddress").value.trim();
-  if (!ethers.isAddress(addr)) {
-    setAlert("VIP 錢包地址格式不正確，請輸入正確的 0x 開頭地址。");
+  if (!chain.isValidAddress(addr)) {
+    ui.setPreError(
+      "outAdmin",
+      "移除 VIP 失敗",
+      "錢包地址格式不正確，請輸入正確的 0x 開頭地址。"
+    );
     return;
   }
 
-  setAlert("");
+  try {
+    const tx = await chain.removeVip(addr);
 
-  const tx = await contract.removeVIP(addr);
-  setPre("outAdmin", `已送出交易：\n${tx.hash}\n等待鏈上確認中...`);
-  await tx.wait();
-  setPre("outAdmin", `已移除 VIP。\n交易：\n${tx.hash}`);
+    ui.setPre(
+      "outAdmin",
+      ui.renderTxPendingText("移除 VIP", [`VIP 錢包地址：${addr}`], tx.hash)
+    );
+
+    await tx.wait();
+
+    ui.setPre(
+      "outAdmin",
+      ui.renderTxSuccessText(
+        "移除 VIP 完成",
+        [`VIP 錢包地址：${addr}`],
+        tx.hash
+      )
+    );
+  } catch (err) {
+    if (err && (err.code === 4001 || err.code === "ACTION_REJECTED")) {
+      ui.setPreNotice(
+        "outAdmin",
+        "移除 VIP 已取消",
+        "你已取消錢包確認，因此沒有送出任何操作。"
+      );
+      return;
+    }
+
+    ui.setPreError(
+      "outAdmin",
+      "移除 VIP 失敗",
+      "操作失敗，請確認你具有管理者權限，且該地址為 VIP。"
+    );
+    console.error("[removeVIP]", err);
+  }
 }
 
 async function onCheckVip() {
@@ -369,36 +254,47 @@ async function onCheckVip() {
     return;
   }
 
-  setPre("outAdmin", "");
+  ui.setPre("outAdmin", "");
 
   const addr = document.getElementById("vipAddress").value.trim();
-  if (!ethers.isAddress(addr)) {
-    setAlert("VIP 錢包地址格式不正確，請輸入正確的 0x 開頭地址。");
+  if (!chain.isValidAddress(addr)) {
+    ui.setPreError(
+      "outAdmin",
+      "查詢 VIP 狀態失敗",
+      "錢包地址格式不正確，請輸入正確的 0x 開頭地址。"
+    );
     return;
   }
 
-  setAlert("");
-
-  const ok = await contract.isVIP(addr);
-  setPre("outAdmin", `isVIP(${addr}) = ${ok}`);
+  try {
+    const ok = await chain.checkVip(addr);
+    ui.setPre("outAdmin", ui.renderVipStatusText(addr, ok));
+  } catch (err) {
+    ui.setPreError(
+      "outAdmin",
+      "查詢 VIP 狀態失敗",
+      "無法讀取 VIP 狀態，請確認網路與合約狀態。"
+    );
+    console.error("[checkVIP]", err);
+  }
 }
 
 function bindUI() {
   document.getElementById("btnConnect").addEventListener("click", async () => {
     try {
-      setAlert("");
-      await connectWallet();
+      ui.setAlert("");
+      await connectWalletFlow();
     } catch (err) {
-      showFriendlyError("connect", err);
+      ui.showFriendlyError("connect", err);
     }
   });
 
   document.getElementById("btnExists").addEventListener("click", async () => {
     try {
-      setAlert("");
+      ui.setAlert("");
       await onExists();
     } catch (err) {
-      showFriendlyError("exists", err);
+      ui.showFriendlyError("exists", err);
     }
   });
 
@@ -406,29 +302,30 @@ function bindUI() {
     .getElementById("btnGetProduct")
     .addEventListener("click", async () => {
       try {
-        setAlert("");
+        ui.setAlert("");
         await onGetProduct();
       } catch (err) {
-        showFriendlyError("getProduct", err);
+        ui.showFriendlyError("getProduct", err);
       }
     });
 
   document.getElementById("btnRegister").addEventListener("click", async () => {
     try {
-      setAlert("");
+      ui.setAlert("");
       await onRegister();
     } catch (err) {
-      showFriendlyError("registerProduct", err);
+      ui.showFriendlyError("registerProduct", err);
     }
   });
 
   document.getElementById("btnAddVip").addEventListener("click", async () => {
     try {
-      setAlert("");
+      ui.setAlert("");
       await onAddVip();
-      await refreshRole();
+      const role = await chain.getRoleFlags();
+      ui.updateRoleUI(role.isAdmin, role.isVip);
     } catch (err) {
-      showFriendlyError("addVIP", err);
+      ui.showFriendlyError("addVIP", err);
     }
   });
 
@@ -436,23 +333,23 @@ function bindUI() {
     .getElementById("btnRemoveVip")
     .addEventListener("click", async () => {
       try {
-        setAlert("");
+        ui.setAlert("");
         await onRemoveVip();
       } catch (err) {
-        showFriendlyError("removeVIP", err);
+        ui.showFriendlyError("removeVIP", err);
       }
     });
 
   document.getElementById("btnCheckVip").addEventListener("click", async () => {
     try {
-      setAlert("");
+      ui.setAlert("");
       await onCheckVip();
     } catch (err) {
-      showFriendlyError("isVIP", err);
+      ui.showFriendlyError("isVIP", err);
     }
   });
 }
 
 bindUI();
-showAdminSection(false);
-showVipSection(false);
+ui.showAdminSection(false);
+ui.showVipSection(false);
